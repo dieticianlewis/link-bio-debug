@@ -1,0 +1,32 @@
+/* frontend/src/app/globals.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Default :root variables (light mode) */
+:root {
+  --background: #ffffff; /* white */
+  --foreground: #111827; /* gray-900 */
+  /* Add other global CSS variables if needed */
+}
+
+/* Dark mode variables */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #111827; /* gray-900 */
+    --foreground: #f3f4f6; /* gray-100 */
+  }
+}
+
+/* Apply background and foreground to the body */
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  /* Tailwind's base styles will handle fonts, so you might not need a default font-family here */
+  /* If you want a specific non-Tailwind default, set it, but Tailwind usually overrides */
+}
+
+/* Example of ensuring inputs have a text color that works in both modes if not using TW classes directly */
+/* input, textarea, select {
+  color: var(--foreground);
+} */
