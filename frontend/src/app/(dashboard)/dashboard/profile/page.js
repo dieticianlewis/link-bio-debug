@@ -13,12 +13,12 @@ export default function ProfileSetupPage() {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e) => {
+    const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
-    // Basic validation
+    // Basic validation... (this part is fine)
     if (!username.match(/^[a-zA-Z0-9_]{3,15}$/)) {
       setError('Username must be 3-15 characters and can only contain letters, numbers, and underscores.');
       setLoading(false);
@@ -26,26 +26,29 @@ export default function ProfileSetupPage() {
     }
 
     try {
-      // Your backend expects a POST request to create a new profile
-      await apiClient.post('/users/profile', {
+      console.log("Submitting profile to backend...");
+      const response = await apiClient.post('/users/profile', {
         username,
         displayName,
       });
 
-      // If successful, redirect the user to the main dashboard
-      // They will now have a profile, so they won't be redirected back here
+      // THIS IS THE SUCCESS BLOCK
+      console.log("Backend responded with success!", response.status, response.data);
+      console.log("Attempting to redirect to /dashboard...");
+      
+      // Stop the loading indicator BEFORE we navigate away
+      setLoading(false);
+
       router.push('/dashboard');
-      router.refresh(); // Refresh to ensure all server components get the new data
+      router.refresh(); // This is still important!
 
     } catch (err) {
-      // Handle errors from the API, like a username that's already taken
+      console.error("Profile setup failed in the catch block:", err);
       const errorMessage = err.response?.data?.message || 'An unexpected error occurred.';
       setError(errorMessage);
-      console.error("Profile setup failed:", errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  };
+      setLoading(false); // Make sure to stop loading on error
+		} 
+	}
 
   return (
     <div className="bg-white p-8 rounded-xl shadow-lg max-w-lg mx-auto">

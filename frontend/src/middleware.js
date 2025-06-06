@@ -1,9 +1,8 @@
-// frontend/src/middleware.js
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse } from 'next/server';
 
 export async function middleware(req) {
-  const res = NextResponse.next();
+  const res = NextResponse.next(); // Initialize res once
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -14,36 +13,31 @@ export async function middleware(req) {
           return req.cookies.get(name)?.value;
         },
         set(name, value, options) {
-          req.cookies.set({ name, value, ...options });
-          // Need to create a new response to apply cookie changes
-          const response = NextResponse.next({
-            request: { headers: new Headers(req.headers) },
-          });
-          response.cookies.set({ name, value, ...options });
-          // Update res to be this new response so it's returned
-          // This part can be tricky; the main idea is that `res` must carry the new cookie
+          req.cookies.set({ name, value, ...options }); // Set on request for current lifecycle
+          res.cookies.set({ name, value, ...options }); // Set on response for browser
         },
         remove(name, options) {
-          req.cookies.set({ name, value: '', ...options });
-          const response = NextResponse.next({
-            request: { headers: new Headers(req.headers) },
-          });
-          response.cookies.delete({ name, ...options });
-          // Update res to be this new response
+          req.cookies.set({ name, value: '', ...options }); // Clear from request
+          res.cookies.delete({ name, ...options });      // Delete from response
         },
       },
     }
   );
 
-  // Refresh session if expired - required for Server Components
-  // This will also update the cookies if the session is refreshed via the `set` method defined above.
-  await supabase.auth.getSession();
+  // This will refresh the session if needed and update cookies via `set`
+  const { data: { user } } = await supabase.auth.getUser(); // Use getUser
+
+  // Example: Route protection (optional, can also be done in layouts)
+  // const { pathname } = req.nextUrl;
+  // if (!user && pathname.startsWith('/dashboard')) {
+  //   return NextResponse.redirect(new URL('/login', req.url));
+  // }
 
   return res;
 }
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|api/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };

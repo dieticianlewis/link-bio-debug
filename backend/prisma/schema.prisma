@@ -5,25 +5,29 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL") // This tells Prisma to look for DATABASE_URL in your .env file
-  relationMode = "prisma"
+  provider     = "postgresql"
+  url          = env("DATABASE_URL")
+  relationMode = "prisma" // Keep if using Supabase pooler on port 6543, or if you have other reasons.
+                           // Can often be removed if using direct DB connection or pooler on port 5432.
 }
 
 model User {
   id                       String    @id @default(cuid())
-  supabaseAuthId           String    @unique
-  username                 String    @unique
-  email                    String?
+  supabaseAuthId           String    @unique // From Supabase Auth
+  username                 String    @unique // App-specific public username
+  email                    String?   @unique // Synced from Supabase Auth, ensures DB level uniqueness too
   displayName              String?
   bio                      String?
-  profileImageUrl          String?
-  stripeAccountId          String?   @unique
+  profileImageUrl          String?   // URL to image, possibly stored in Supabase Storage
+  stripeAccountId          String?   @unique // For Stripe Connect
   stripeOnboardingComplete Boolean   @default(false)
-  links                    Link[]
-  paymentsReceived         Payment[] @relation("RecipientPayments")
+
+  links                    Link[]    // Relation to user's links
+  paymentsReceived         Payment[] @relation("RecipientPayments") // Relation to payments received
+
   createdAt                DateTime  @default(now())
   updatedAt                DateTime  @updatedAt
+
   @@index([supabaseAuthId])
   @@index([username])
 }
@@ -32,26 +36,31 @@ model Link {
   id          String   @id @default(cuid())
   title       String
   url         String
-  userId      String
+  userId      String   // Foreign key to User
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  order       Int?
-  clicks      Int      @default(0)
+  order       Int?     // For custom ordering
+  clicks      Int      @default(0) // Optional click tracking
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
   @@index([userId])
 }
 
 model Payment {
   id                    String    @id @default(cuid())
-  stripePaymentIntentId String    @unique
-  amount                Int
-  currency              String
-  status                String
-  recipientUserId       String
+  stripePaymentIntentId String    @unique // From Stripe (e.g., pi_xxxx)
+  amount                Int       // In cents
+  currency              String    // e.g., "usd"
+  status                String    // e.g., "succeeded", "paid"
+  recipientUserId       String    // Foreign key to User who received payment
   recipient             User      @relation("RecipientPayments", fields: [recipientUserId], references: [id], onDelete: Restrict)
+  
+  // Optional details about the payer
   payerName             String?
-  payerEmail            String?
-  platformFee           Int?
-  netAmountToRecipient  Int?
+  payerEmail            String?   // Be mindful of PII
+  
+  platformFee           Int?      // Platform fee taken, in cents
+  netAmountToRecipient  Int?      // amount - platformFee, in cents
+  
   createdAt             DateTime  @default(now())
 }

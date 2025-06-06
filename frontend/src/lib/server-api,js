@@ -1,45 +1,79 @@
-// You can create a new file: frontend/src/lib/server-api.js
-
+// frontend/src/lib/server-api.js
 import { cookies } from 'next/headers';
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createServerClient } from '@supabase/ssr';
 
-/**
- * A helper function to make authenticated API calls from within Next.js Server Components.
- */
 export async function fetchFromServer(path, options = {}) {
-  // 1. Create a Supabase client that can read the request's cookies
   const cookieStore = cookies();
-  const supabase = createServerComponentClient({ cookies: () => cookieStore });
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    {
+      cookies: {
+        get(name) {
+          return cookieStore.get(name)?.value;
+        },
+      },
+    }
+  );
 
-  // 2. Get the user's session from the cookies
-  const { data: { session } } = await supabase.auth.getSession();
+  // Use getUser() to ensure the session is validated server-side
+  const { data: { user } } = await supabase.auth.getUser();
 
-  // 3. Construct the full API URL
+  // If no authenticated user, you might decide to not even attempt the fetch
+  // or let your backend handle unauthenticated requests if some are public.
+  // For '/users/me', it definitely needs an authenticated user.
+  if (!user) {
+    console.warn(`[fetchFromServer] No authenticated Supabase user. Cannot make authenticated call to ${path}.`);
+    // Depending on the API, you might throw an error or return a specific object.
+    // For /users/me, this would result in the backend returning 401.
+    // Or, you could throw here to prevent the fetch if user is mandatory.
+    // throw new Error("User not authenticated");
+  }
+
+  const accessToken = user ? (await supabase.auth.getSession())?.data.session?.access_token : null;
+
   const apiUrl = `${process.env.NEXT_PUBLIC_API_BASE_URL}${path}`;
+  console.log(`[fetchFromServer] Calling: ${options.method || 'GET'} ${apiUrl}`);
 
-  // 4. Create the headers, including the Authorization token
   const headers = new Headers(options.headers);
-  if (session) {
-    headers.set('Authorization', `Bearer ${session.access_token}`);
+  if (accessToken) {
+    headers.set('Authorization', `Bearer ${accessToken}`);
+  } else {
+    console.warn(`[fetchFromServer] No access token available for ${path}. Request might fail if auth is required.`);
   }
-  // Ensure we are expecting JSON
-  headers.set('Content-Type', 'application/json');
 
-  // 5. Make the fetch call
-  const response = await fetch(apiUrl, {
-    ...options,
-    headers,
-  });
+  if (options.body && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
 
-  // Basic error handling
+  let response;
+  try {
+    response = await fetch(apiUrl, {
+      ...options,
+      headers,
+      cache: options.cache || 'no-store',
+    });
+  } catch (networkError) {
+    console.error(`[fetchFromServer] Network error calling ${path}:`, networkError);
+    throw new Error(`Network error when calling API: ${networkError.message}`);
+  }
+
   if (!response.ok) {
-    // You can add more robust error handling here
-    const errorBody = await response.text();
-    console.error(`API Error (${response.status}): ${errorBody}`);
-    // Re-throw or return a specific error structure
-    throw new Error(`API call to ${path} failed with status ${response.status}`);
+    let errorBodyText = "Could not retrieve error body.";
+    try { errorBodyText = await response.text(); } catch (e) { /* ignore */ }
+    console.error(`[fetchFromServer] API Error (${response.status}) for ${path}: ${errorBodyText}`);
+    const error = new Error(`API call to ${path} failed with status ${response.status}`);
+    error.status = response.status;
+    try { error.body = JSON.parse(errorBodyText); } catch (e) { error.body = errorBodyText; }
+    throw error;
   }
 
-  // If the response is successful, parse and return the JSON
-  return response.json();
+  const contentType = response.headers.get("content-type");
+  if (contentType && contentType.includes("application/json")) {
+    try { return await response.json(); } catch (jsonError) {
+      console.error(`[fetchFromServer] Error parsing JSON from ${path}:`, jsonError);
+      throw new Error(`Failed to parse JSON response: ${jsonError.message}`);
+    }
+  }
+  return undefined;
 }
