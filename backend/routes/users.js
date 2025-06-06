@@ -1,7 +1,8 @@
 // backend/routes/users.js
 const express = require('express');
 const router = express.Router();
-const { prisma } = require('../index'); // Ensure this path correctly gets your Prisma client instance
+
+const { prisma } = require('../lib/db'); // CORRECT: Points to the dedicated DB file
 const { authMiddleware } = require('../middleware/auth');
 
 // GET /api/users/me - Get the currently authenticated user's application profile

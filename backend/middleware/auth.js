@@ -1,6 +1,6 @@
 // backend/middleware/auth.js
 const { createClient } = require('@supabase/supabase-js');
-const { prisma } = require('../index'); // Assuming prisma is exported from index.js
+const { prisma } = require('../lib/db');
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY; // CRITICAL: Use a distinct variable
