@@ -1,7 +1,7 @@
 // backend/routes/publicProfile.js
 const express = require('express');
 const router = express.Router();
-const { prisma } = require('../index');
+const { prisma } = require('../lib/db');
 
 // GET /api/public/profile/:username - Get a user's public profile by their app username
 router.get('/profile/:username', async (req, res) => {

@@ -1,7 +1,7 @@
 // backend/routes/links.js
 const express = require('express');
 const router = express.Router();
-const { prisma } = require('../index');
+const { prisma } = require('../lib/db');
 // authMiddleware is applied in index.js for all /api/links routes, so req.localUser should be available.
 
 // POST /api/links - Create a new link

@@ -1,4 +1,4 @@
-// frontend/src/app/(dashboard)/dashboard/layout.js (CORRECTED)
+// frontend/src/app/(dashboard)/dashboard/layout.js
 
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
@@ -9,6 +9,8 @@ import { handleLogout } from '@/app/actions';
 
 export default async function DashboardLayout({ children }) {
   const cookieStore = cookies();
+
+  // THIS IS THE CORRECTED AND FINAL VERSION OF THE CLIENT
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
@@ -17,11 +19,28 @@ export default async function DashboardLayout({ children }) {
         get(name) {
           return cookieStore.get(name)?.value;
         },
+        // These are required by the library for it to manage session
+        // state correctly across server components and server actions.
+        set(name, value, options) {
+          // The try/catch is a safety measure for cases where this runs
+          // in a read-only context, like during a static build.
+          try {
+            cookieStore.set({ name, value, ...options });
+          } catch (error) {
+            // In a real app, you might want to log this error.
+          }
+        },
+        remove(name, options) {
+          try {
+            cookieStore.set({ name, value: '', ...options });
+          } catch (error) {
+            // In a real app, you might want to log this error.
+          }
+        },
       },
     }
   );
 
-  // Use the more secure getUser() method to protect the route
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {

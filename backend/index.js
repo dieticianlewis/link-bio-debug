@@ -2,40 +2,42 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const { prisma } = require('./lib/db');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Middleware
-app.use(cors({ origin: process.env.FRONTEND_URL }));
-// Stripe webhook endpoint needs raw body BEFORE express.json()
-// We'll define stripeRoutes and its specific webhook handler later
-// app.post('/api/stripe/webhook', express.raw({type: 'application/json'}), stripeWebhookHandler);
-app.use(express.json()); // For parsing application/json for other routes
+// --- Middleware Configuration ---
 
-// Import Routes
-const authMiddleware = require('./middleware/auth').authMiddleware; // Corrected import
+// 1. More Robust CORS Configuration
+const corsOptions = {
+  origin: process.env.FRONTEND_URL, // e.g., 'http://localhost:3000'
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Allow these methods
+  allowedHeaders: ['Content-Type', 'Authorization'], // Allow these headers
+  optionsSuccessStatus: 200 // For pre-flight requests
+};
+app.use(cors(corsOptions));
+// The 'cors' middleware with these options will automatically handle preflight OPTIONS requests.
+
+// Route for Stripe webhooks (must come before express.json())
+const stripeRoutes = require('./routes/stripe');
+app.use('/api/stripe', stripeRoutes);
+
+// Global JSON parser for all other routes
+app.use(express.json());
+
+// --- Route Imports ---
+const { authMiddleware } = require('./middleware/auth');
 const userRoutes = require('./routes/users');
 const linkRoutes = require('./routes/links');
 const publicProfileRoutes = require('./routes/publicProfile');
-const stripeRoutes = require('./routes/stripe'); // Create this file
 
-// Public Routes (no auth needed)
+// --- Route Definitions ---
 app.get('/api', (req, res) => res.send('Link Bio API Running!'));
 app.use('/api/public', publicProfileRoutes);
-
-// Routes that might have mixed protection or handle initial user setup
-app.use('/api/users', userRoutes); // e.g., POST /api/users/profile to create/update
-
-// Protected Routes (require Supabase JWT validation)
+app.use('/api/users', userRoutes);
 app.use('/api/links', authMiddleware, linkRoutes);
 
-// Stripe Routes (some public like webhook, some protected like connect onboarding)
-app.use('/api/stripe', stripeRoutes); // Stripe routes will handle their own auth middleware where needed
-
+// --- Server Startup ---
 app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`Server is listening on http://localhost:${PORT}`);
 });
-
-module.exports = { prisma }; // Export prisma for use in route files

@@ -1,7 +1,7 @@
 // backend/routes/stripe.js
 const express = require('express');
 const router = express.Router();
-const { prisma } = require('../index');
+const { prisma } = require('../lib/db');
 const { authMiddleware } = require('../middleware/auth'); // For protected Stripe routes
 
 // Initialize Stripe with your secret key
