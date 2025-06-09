@@ -1,28 +1,34 @@
 // frontend/src/app/actions.js
 'use server';
 
-import { cookies } from 'next/headers';
-import { createServerClient } from '@supabase/ssr';
-import { redirect } from 'next/navigation';
+import { revalidatePath } from 'next/cache';
+import { fetchFromServer } from '@/lib/server-api'; // <-- CORRECT PATH
 
-export async function handleLogout() {
-  const cookieStore = cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    {
-      cookies: {
-        get(name) { return cookieStore.get(name)?.value; },
-        set(name, value, options) { cookieStore.set({ name, value, ...options }); },
-        remove(name, options) { cookieStore.delete({ name, ...options }); }, // or cookieStore.set({ name, value: '', ...options})
-      },
+export async function updateProfile(formData) {
+  const profileData = {
+    username: formData.get('username'),
+    displayName: formData.get('displayName'),
+    bio: formData.get('bio'),
+    profileImageUrl: formData.get('profileImageUrl'),
+  };
+
+  try {
+    await fetchFromServer('/api/users/profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(profileData),
+    });
+
+    // Revalidate paths to show updated data immediately
+    revalidatePath('/dashboard');
+    revalidatePath('/dashboard/profile');
+    if (profileData.username) {
+        revalidatePath(`/${profileData.username}`);
     }
-  );
-  const { error } = await supabase.auth.signOut();
-  if (error) {
-    console.error('Error signing out:', error);
-    // Optionally, handle error (e.g., redirect to an error page or return an error object)
-    // For now, we still redirect to login.
+
+    return { success: true, message: 'Profile updated successfully!' };
+  } catch (error) {
+    console.error("Error in updateProfile action:", error);
+    return { success: false, message: error.body?.message || 'An unknown error occurred.' };
   }
-  return redirect('/login'); // Use return for redirect in Server Actions
 }

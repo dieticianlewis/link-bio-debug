@@ -1,82 +1,85 @@
 // backend/routes/links.js
 const express = require('express');
 const router = express.Router();
-const { prisma } = require('../lib/db');
-// authMiddleware is applied globally to this router in index.js
+const prisma = require('../lib/prisma');
+// authMiddleware will be applied when this router is mounted in index.js
 
-// POST /api/links - Create a new link
+// Create a new link
 router.post('/', async (req, res) => {
-  if (!req.localUser) return res.status(403).json({ message: "Profile setup required." });
+  if (!req.localUser) {
+    return res.status(403).json({ message: "User profile not set up. Cannot create links." });
+  }
   const { title, url } = req.body;
-  if (!title || !url) return res.status(400).json({ message: "Title and URL are required." });
-
+  if (!title || !url) {
+    return res.status(400).json({ message: 'Title and URL are required' });
+  }
   try {
-    const newLink = await prisma.link.create({ data: { title, url, userId: req.localUser.id } });
+    const newLink = await prisma.link.create({
+      data: {
+        title,
+        url,
+        userId: req.localUser.id, // localUser comes from authMiddleware
+      },
+    });
     res.status(201).json(newLink);
   } catch (error) {
-    console.error("[POST /api/links] Error:", error);
-    res.status(500).json({ message: "Failed to create link." });
+    res.status(500).json({ message: 'Error creating link', error: error.message });
   }
 });
 
-// GET /api/links - Get all links for the user
+// Get all links for the logged-in user
 router.get('/', async (req, res) => {
-  if (!req.localUser) return res.status(403).json({ message: "Profile setup required." });
+  if (!req.localUser) {
+    return res.status(403).json({ message: "User profile not set up." });
+  }
   try {
     const links = await prisma.link.findMany({
       where: { userId: req.localUser.id },
-      orderBy: [{ order: 'asc' }, { createdAt: 'asc' }],
+      orderBy: { order: 'asc' }, // Or createdAt, etc.
     });
     res.json(links);
   } catch (error) {
-    console.error("[GET /api/links] Error:", error);
-    res.status(500).json({ message: "Failed to fetch links." });
+    res.status(500).json({ message: 'Error fetching links', error: error.message });
   }
 });
 
-// PUT /api/links/:linkId - Update a link
+// Update a link
 router.put('/:linkId', async (req, res) => {
-  if (!req.localUser) return res.status(403).json({ message: "Profile setup required." });
+  if (!req.localUser) {
+    return res.status(403).json({ message: "User profile not set up." });
+  }
   const { linkId } = req.params;
   const { title, url, order } = req.body;
-  const userId = req.localUser.id;
-
-  const dataToUpdate = {};
-  if (title !== undefined) dataToUpdate.title = title;
-  if (url !== undefined) dataToUpdate.url = url;
-  if (order !== undefined) dataToUpdate.order = (order === null || order === '') ? null : parseInt(order, 10);
-
-  if (Object.keys(dataToUpdate).length === 0) {
-    return res.status(400).json({ message: "No update data provided." });
-  }
-
   try {
-    const link = await prisma.link.findFirst({ where: { id: linkId, userId } });
-    if (!link) return res.status(404).json({ message: "Link not found or unauthorized." });
-
-    const updatedLink = await prisma.link.update({ where: { id: linkId }, data: dataToUpdate });
+    const link = await prisma.link.findUnique({ where: { id: linkId } });
+    if (!link || link.userId !== req.localUser.id) {
+      return res.status(404).json({ message: 'Link not found or unauthorized' });
+    }
+    const updatedLink = await prisma.link.update({
+      where: { id: linkId },
+      data: { title, url, order },
+    });
     res.json(updatedLink);
   } catch (error) {
-    console.error(`[PUT /api/links/${linkId}] Error:`, error);
-    res.status(500).json({ message: "Failed to update link." });
+    res.status(500).json({ message: 'Error updating link', error: error.message });
   }
 });
 
-// DELETE /api/links/:linkId - Delete a link
+// Delete a link
 router.delete('/:linkId', async (req, res) => {
-  if (!req.localUser) return res.status(403).json({ message: "Profile setup required." });
+  if (!req.localUser) {
+    return res.status(403).json({ message: "User profile not set up." });
+  }
   const { linkId } = req.params;
-  const userId = req.localUser.id;
-
   try {
-    const link = await prisma.link.findFirst({ where: { id: linkId, userId } });
-    if (!link) return res.status(404).json({ message: "Link not found or unauthorized." });
-
+    const link = await prisma.link.findUnique({ where: { id: linkId } });
+    if (!link || link.userId !== req.localUser.id) {
+      return res.status(404).json({ message: 'Link not found or unauthorized' });
+    }
     await prisma.link.delete({ where: { id: linkId } });
-    res.status(204).send();
+    res.status(204).send(); // No content
   } catch (error) {
-    console.error(`[DELETE /api/links/${linkId}] Error:`, error);
-    res.status(500).json({ message: "Failed to delete link." });
+    res.status(500).json({ message: 'Error deleting link', error: error.message });
   }
 });
 

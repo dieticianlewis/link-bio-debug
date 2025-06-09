@@ -1,27 +1,27 @@
 // frontend/src/lib/api.js
-
 import axios from 'axios';
-import { createBrowserClient } from '@supabase/ssr';
+import { supabase } from './supabaseClient';
 
-// THIS IS THE FIX: We add the '/api' prefix to the baseURL so all
-// requests from this client will go to the correct path.
+const baseURL = process.env.NEXT_PUBLIC_API_BASE_URL; // e.g., http://localhost:3001/api
+
+if (!baseURL) {
+  console.error("CRITICAL: NEXT_PUBLIC_API_BASE_URL is not set in .env.local for client-side API calls.");
+  // Potentially throw an error or use a default to prevent app from breaking entirely
+  // For now, Axios will try to use an undefined baseURL if not set, which will fail.
+}
+
 const apiClient = axios.create({
-  baseURL: `${process.env.NEXT_PUBLIC_API_BASE_URL}/api`,
+  baseURL: baseURL, // Uses the full base URL including /api
 });
 
-// The rest of this file is already correct.
 apiClient.interceptors.request.use(
   async (config) => {
-    if (typeof window !== 'undefined') {
-      const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-      );
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.access_token) {
-        config.headers.Authorization = `Bearer ${session.access_token}`;
-      }
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) {
+      config.headers.Authorization = `Bearer ${session.access_token}`;
     }
+    // Ensure relative paths passed to apiClient calls don't start with /api
+    // e.g., apiClient.get('/users/me') not apiClient.get('/api/users/me')
     return config;
   },
   (error) => {
