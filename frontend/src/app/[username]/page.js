@@ -1,81 +1,97 @@
 // frontend/src/app/[username]/page.js
 import { notFound } from 'next/navigation';
 import Image from 'next/image';
-import SendTipButton from '@/components/SendTipButton'; // Ensure this component exists
+import SendTipButton from '@/components/SendTipButton'; // Ensure this component exists and is correctly imported
 
+// This function fetches public profile data from your backend
 async function getPublicProfileData(username) {
-  const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
-  if (!apiBaseUrl) {
-    console.error("[FRONTEND SERVER] PublicProfilePage: CRITICAL - NEXT_PUBLIC_API_BASE_URL is not defined.");
+  // Ensure username is a string and not undefined/null before fetching
+  if (typeof username !== 'string' || !username) {
+    console.error("[FRONTEND SERVER] getPublicProfileData: Invalid or missing username provided:", username);
     return null;
   }
 
-  // Assuming NEXT_PUBLIC_API_BASE_URL is "http://localhost:3001/api"
-  // The path should be relative to this base.
-  const specificPath = `/public/profile/${username}`;
+  const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL; // e.g., http://localhost:3001/api
+  if (!apiBaseUrl) {
+    console.error("[FRONTEND SERVER] PublicProfilePage: CRITICAL - NEXT_PUBLIC_API_BASE_URL is not defined.");
+    return null; // Return null on config error, page will 404
+  }
+
+  const specificPath = `/public/profile/${username}`; // Path relative to your API base
   const apiUrl = `${apiBaseUrl}${specificPath}`;
   // console.log(`[FRONTEND SERVER] PublicProfilePage: Attempting to fetch: ${apiUrl}`);
 
   try {
-    const res = await fetch(apiUrl, { cache: 'no-store' });
+    const res = await fetch(apiUrl, { cache: 'no-store' }); // Fetch fresh data
     // console.log(`[FRONTEND SERVER] PublicProfilePage: Response status for ${username} from ${apiUrl}: ${res.status}`);
 
     if (!res.ok) {
-      // const errorBody = await res.text(); // For debugging
-      // console.warn(`[FRONTEND SERVER] API Error for ${username}. Status: ${res.status}. Body: ${errorBody.substring(0,100)}`);
-      return null; 
+      // const errorBody = await res.text(); 
+      // if (res.status === 404) {
+      //   console.warn(`[FRONTEND SERVER] API returned 404 for ${username} from ${apiUrl}. User not found on backend. Response: ${errorBody.substring(0,100)}`);
+      // } else {
+      //   console.error(`[FRONTEND SERVER] API error for ${username} from ${apiUrl}. Status: ${res.status}. Response: ${errorBody.substring(0,200)}`);
+      // }
+      return null; // Signal data not found or error, leading to notFound()
     }
-    return await res.json();
+
+    const jsonData = await res.json();
+    // console.log(`[FRONTEND SERVER] PublicProfilePage: Successfully fetched profile for ${username}`);
+    return jsonData;
   } catch (error) {
     console.error(`[FRONTEND SERVER] CATCH BLOCK in getPublicProfileData for ${username} calling ${apiUrl}:`, error.message);
-    return null;
+    return null; // Ensure null is returned on any fetch/parse error
   }
 }
 
+// The page component now accepts searchParams for the cancellation message
 export default async function PublicProfilePage({ params, searchParams }) {
-  const username = params.username; // Provided by Next.js for dynamic routes
+  // Access params and searchParams directly.
+  // The Next.js warnings about "awaiting" them are often dev-time linter quirks for async Server Components
+  // if functionality is correct.
+  const username = params.username; 
+  const paymentCancelled = searchParams?.payment_cancelled === 'true'; 
+
   const profileData = await getPublicProfileData(username);
 
   // console.log(`[PublicProfilePage for ${username}] Profile Data Received on Server:`, JSON.stringify(profileData, null, 2));
 
-  const paymentCancelled = searchParams?.payment_cancelled === 'true'; // searchParams also provided
-
   if (!profileData) {
-    notFound();
+    notFound(); // Triggers Next.js built-in 404 page if profileData is null
   }
 
-  const { 
-    displayName = username, 
-    bio = "", 
-    profileImageUrl, 
-    bannerImageUrl, // Make sure this is selected and returned by your backend
-    links = [], 
-    stripeAccountId, 
-    stripeOnboardingComplete 
-  } = profileData;
+  // Destructure profile data with fallbacks
+  const displayName = profileData.displayName || username;
+  const bio = profileData.bio || "";
+  const profileImageUrl = profileData.profileImageUrl;
+  const bannerImageUrl = profileData.bannerImageUrl;
+  const links = profileData.links || [];
+  const stripeAccountId = profileData.stripeAccountId;
+  const stripeOnboardingComplete = profileData.stripeOnboardingComplete;
 
   return (
     <div className="container mx-auto max-w-3xl flex flex-col items-center pb-10">
       {/* Banner Image */}
-      <div className="w-full h-48 md:h-64 lg:h-72 relative shadow-lg bg-gray-200">
+      <div className="w-full h-48 md:h-64 lg:h-72 relative shadow-lg bg-gray-200"> {/* Fallback bg color */}
         {bannerImageUrl ? (
           <Image
             src={bannerImageUrl}
             alt={`${displayName}'s banner`}
-            layout="fill" // Changed from "fill" to "responsive" if aspect ratio is known, or keep fill with parent dimensions
+            layout="fill"
             objectFit="cover"
-            priority={true} // Banner is likely important for LCP
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" // Example sizes, adjust as needed
+            priority={true}
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" // Example, adjust
           />
         ) : (
           <div className="w-full h-full bg-gradient-to-r from-gray-300 to-gray-400 flex items-center justify-center text-gray-500">
-            {/* Optional: <p>No banner image</p> */}
+            {/* Optional: Placeholder for no banner */}
           </div>
         )}
       </div>
 
       {/* Profile content area */}
-      <div className="w-full max-w-2xl bg-white p-6 md:p-8 shadow-xl relative z-10 -mt-12 md:-mt-16 rounded-lg mx-4 sm:mx-0">
+      <div className="w-full max-w-2xl bg-white p-6 md:p-8 shadow-xl relative z-10 -mt-12 md:-mt-16 rounded-lg mx-4 sm:mx-0"> 
+        {/* Profile Image - Centered */}
         <div className="flex justify-center -mt-20 md:-mt-24 mb-4">
           {profileImageUrl ? (
             <Image
@@ -104,6 +120,7 @@ export default async function PublicProfilePage({ params, searchParams }) {
           {bio && <p className="text-md text-gray-600 leading-relaxed max-w-lg mx-auto mb-6">{bio}</p>}
         </div>
 
+        {/* Payment Button Area */}
         <div className="mb-8 px-4 md:px-0">
           {stripeAccountId && stripeOnboardingComplete ? (
             <SendTipButton recipientUsername={username} recipientDisplayName={displayName} />
@@ -114,6 +131,7 @@ export default async function PublicProfilePage({ params, searchParams }) {
           )}
         </div>
 
+        {/* Links Section */}
         <div className="w-full px-4 md:px-0">
           {links.length > 0 && (<h2 className="text-xl font-semibold text-gray-700 mb-4 text-center">Links</h2>)}
           <div className="space-y-3">
@@ -127,13 +145,20 @@ export default async function PublicProfilePage({ params, searchParams }) {
   );
 }
 
+// For SEO and Tab Title
 export async function generateMetadata({ params }) {
-  const username = params.username;
+  const username = params.username; // Access params directly
   let profileData;
-  try { profileData = await getPublicProfileData(username); } catch (error) { return { title: 'Profile Unavailable' }; }
-  if (!profileData) { return { title: 'User Not Found' }; }
+  try { 
+    profileData = await getPublicProfileData(username); 
+  } catch (error) { 
+    return { title: 'Profile Unavailable' }; 
+  }
+  if (!profileData) { 
+    return { title: 'User Not Found' }; 
+  }
   
-  const siteName = process.env.PLATFORM_DISPLAY_NAME || "YourLinkSite"; // Set PLATFORM_DISPLAY_NAME in .env
+  const siteName = process.env.PLATFORM_DISPLAY_NAME || "YourLinkSiteName"; // Set PLATFORM_DISPLAY_NAME in .env
   const title = `${profileData.displayName || profileData.username}'s Page | ${siteName}`;
   const description = profileData.bio || `Check out ${profileData.displayName || profileData.username}'s links on ${siteName}.`;
   
@@ -142,11 +167,25 @@ export async function generateMetadata({ params }) {
   else if (profileData.profileImageUrl) imagesForMeta.push({ url: profileData.profileImageUrl, alt: 'Profile Picture' });
 
   const twitterImages = imagesForMeta.length > 0 ? [imagesForMeta[0].url] : [];
+  // Ensure FRONTEND_URL is available in the environment where generateMetadata runs (build time or server side)
   const pageUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/${username}`; 
 
   return {
-    title, description,
-    openGraph: { title, description, images: imagesForMeta, type: 'profile', url: pageUrl, siteName },
-    twitter: { card: imagesForMeta.length > 0 ? 'summary_large_image' : 'summary', title, description, images: twitterImages },
+    title, 
+    description,
+    openGraph: { 
+      title, 
+      description, 
+      images: imagesForMeta, 
+      type: 'profile', 
+      url: pageUrl, 
+      siteName 
+    },
+    twitter: { 
+      card: imagesForMeta.length > 0 ? 'summary_large_image' : 'summary', 
+      title, 
+      description, 
+      images: twitterImages 
+    },
   };
 }
