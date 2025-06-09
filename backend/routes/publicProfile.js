@@ -15,6 +15,7 @@ router.get('/profile/:username', async (req, res) => {
         displayName: true,
         bio: true,
         profileImageUrl: true,
+		bannerImageUrl: true, // <<<< MAKE SURE THIS IS INCLUDED
         stripeAccountId: true, // For frontend to know if payments can be made
         stripeOnboardingComplete: true, // For frontend logic
         links: {

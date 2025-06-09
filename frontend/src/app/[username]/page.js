@@ -65,6 +65,9 @@ export default async function PublicProfilePage({ params, searchParams }) {
   const bio = profileData.bio || "";
   const profileImageUrl = profileData.profileImageUrl;
   const bannerImageUrl = profileData.bannerImageUrl;
+  
+  console.log(`[FRONTEND SERVER - ${username} Page] Attempting to use bannerImageUrl:`, bannerImageUrl);
+  
   const links = profileData.links || [];
   const stripeAccountId = profileData.stripeAccountId;
   const stripeOnboardingComplete = profileData.stripeOnboardingComplete;
