@@ -1,4 +1,4 @@
-// NEW (in next.config.js - CommonJS)
+// frontend/next.config.js
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -6,18 +6,11 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'qpykmvmfpqitrhwoayya.supabase.co', // Your Supabase project hostname
-        pathname: '/storage/v1/object/public/avatars/**', // Path to your avatars bucket
+        hostname: 'qpykmvmfpqitrhwoayya.supabase.co',
+        pathname: '/storage/v1/object/public/avatars/**',
       },
-      {
-        protocol: 'https',
-        hostname: 'i.imgur.com', // If you still use imgur
-        pathname: '/**',
-      },
-      // Add other trusted hostnames if needed
     ],
   },
-  // ... any other Next.js configurations you have
 };
 
-module.exports = nextConfig; // <--- This is CommonJS export
+module.exports = nextConfig;

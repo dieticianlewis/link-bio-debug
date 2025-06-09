@@ -13,21 +13,21 @@ datasource db {
 
 model User {
   id                       String    @id @default(cuid())
-  supabaseAuthId           String    @unique // From Supabase Auth
-  username                 String    @unique // App-specific public username
-  email                    String?   @unique // Synced from Supabase Auth, ensures DB level uniqueness too
+  supabaseAuthId           String    @unique
+  username                 String    @unique
+  email                    String?
   displayName              String?
   bio                      String?
-  profileImageUrl          String?   // URL to image, possibly stored in Supabase Storage
-  stripeAccountId          String?   @unique // For Stripe Connect
+  profileImageUrl          String?   // Existing avatar URL
+  bannerImageUrl           String?   // NEW: For banner image URL
+
+  stripeAccountId          String?   @unique
   stripeOnboardingComplete Boolean   @default(false)
-
-  links                    Link[]    // Relation to user's links
-  paymentsReceived         Payment[] @relation("RecipientPayments") // Relation to payments received
-
+  
+  links                    Link[]
+  paymentsReceived         Payment[] @relation("RecipientPayments")
   createdAt                DateTime  @default(now())
   updatedAt                DateTime  @updatedAt
-
   @@index([supabaseAuthId])
   @@index([username])
 }
